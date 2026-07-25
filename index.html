@@ -122,6 +122,10 @@
     // Function to play emergency alert chime
 function playAlertSound() {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Wake up audio if browser suspended it
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
 
