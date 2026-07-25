@@ -26,14 +26,15 @@
     .chat-input input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
     .chat-input button { background: #007bff; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
   /* Red Flash Animation for Emergency Alerts */
-@keyframes sosFlash {
-    0% { outline: 0px solid transparent; }
-    50% { outline: 12px solid #ef4444; outline-offset: -12px; }
-    100% { outline: 0px solid transparent; }
+/* Pulsing Map Marker Effect */
+@keyframes markerPulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.8); opacity: 0.4; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
-.flash-alert {
-    animation: sosFlash 0.8s ease-in-out 3;
+.flash-marker {
+    animation: markerPulse 0.8s ease-in-out infinite;
 }
   </style>
 </head>
@@ -120,29 +121,24 @@
     }
 
     socket.on('broadcast_sos', (data) => {
-      document.body.classList.add('flash-alert');
-    setTimeout(() => {
-        document.body.classList.remove('flash-alert');
-    }, 2400);
-      L.circleMarker([data.lat, data.lng], {
+    L.circleMarker([data.lat, data.lng], {
         color: 'red',
         radius: 22,
         fillColor: '#f03',
-        fillOpacity: 0.6
-      }).addTo(map).bindPopup(`🚨 <b>SOS ALERT from ${data.user}!</b>`).openPopup();
+        fillOpacity: 0.6,
+        className: 'flash-marker'
+    }).addTo(map).bindPopup(`🚨 <b>SOS ALERT from ${data.user}!</b>`).openPopup();
 
-      const chatBox = document.getElementById('chatBox');
-      chatBox.innerHTML += `
+    const chatBox = document.getElementById('chatBox');
+    chatBox.innerHTML += `
         <div class="msg sos-alert">
-          🚨 <b>EMERGENCY SOS BY ${data.user.toUpperCase()}!</b><br>
-          GPS: (${data.lat.toFixed(4)}, ${data.lng.toFixed(4)})
-          <div class="time">${data.time}</div>
+            🚨 <b>EMERGENCY SOS BY ${data.user.toUpperCase()}!</b><br>
+            GPS: (${data.lat.toFixed(4)}, ${data.lng.toFixed(4)})
+            <div class="time">${data.time}</div>
         </div>
-      `;
-      chatBox.scrollTop = chatBox.scrollHeight;
-    });
-
-    socket.on('receive_chat', (data) => {
+    `;
+    chatBox.scrollTop = chatBox.scrollHeight;
+});
       const chatBox = document.getElementById('chatBox');
       chatBox.innerHTML += `
         <div class="msg">
