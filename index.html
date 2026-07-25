@@ -119,8 +119,27 @@
       });
       msgInput.value = '';
     }
+    // Function to play emergency alert chime
+function playAlertSound() {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.6);
+}
 
     socket.on('broadcast_sos', (data) => {
+      playAlertSound();
     L.circleMarker([data.lat, data.lng], {
         color: 'red',
         radius: 22,
