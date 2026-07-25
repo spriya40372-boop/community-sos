@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Community SOS Hub</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+    .navbar { background: #111; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .sos-btn { background: #ff3333; color: white; border: none; padding: 10px 22px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+    .sos-btn:hover { background: #cc0000; }
+    .app-body { display: flex; flex: 1; height: calc(100vh - 60px); }
+    #map { flex: 7; height: 100%; }
+    .chat-panel { flex: 3; min-width: 300px; background: #f8f9fa; border-left: 2px solid #ddd; display: flex; flex-direction: column; }
+    .chat-header { padding: 15px; background: #222; color: white; font-weight: bold; }
+    .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .msg { background: white; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px; }
+    .msg.sos-alert { background: #ffe6e6; border-color: #ff9999; color: #b30000; font-weight: bold; }
+    .time { font-size: 10px; color: #777; text-align: right; margin-top: 4px; }
+    .chat-input { padding: 12px; background: white; border-top: 1px solid #ddd; display: flex; gap: 8px; }
+    .chat-input input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+    .chat-input button { background: #007bff; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div class="navbar">
+    <h2>🚨 Community Safety Hub</h2>
+    <button class="sos-btn" onclick="sendSOS()">BROADCAST SOS</button>
+  </div>
+
+  <div class="app-body">
+    <div id="map"></div>
+    <div class="chat-panel">
+      <div class="chat-header">💬 Live Community Chat</div>
+      <div class="chat-messages" id="chatBox">
+        <div class="msg"><b>System:</b> Live alerts and messages will appear here.</div>
+      </div>
+      <div class="chat-input">
+        <input type="text" id="username" placeholder="Name" style="width: 80px;" />
+        <input type="text" id="message" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendChat()"/>
+        <button onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const socket = io();
+    const map = L.map('map').setView([20.5937, 78.9629], 5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    let userLat, userLng;
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(position => {
+        userLat = position.coords.latitude;
+        userLng = position.coords.longitude;
+        map.setView([userLat, userLng], 14);
+        L.marker([userLat, userLng]).addTo(map).bindPopup("<b>You are here</b>").openPopup();
+      });
+    }
+
+    function sendSOS() {
+      if (!userLat || !userLng) {
+        alert("Fetching location... Try again in a moment.");
+        return;
+      }
+      const user = document.getElementById('username').value.trim() || 'Anonymous';
+      socket.emit('trigger_sos', {
+        user: user,
+        lat: userLat,
+        lng: userLng,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+    }
+
+    function sendChat() {
+      const user = document.getElementById('username').value.trim() || 'Anonymous';
+      const msgInput = document.getElementById('message');
+      const text = msgInput.value.trim();
+      if (!text) return;
+
+      socket.emit('send_chat', {
+        user: user,
+        text: text,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+      msgInput.value = '';
+    }
+
+    socket.on('broadcast_sos', (data) => {
+      L.circleMarker([data.lat, data.lng], {
+        color: 'red',
+        radius: 22,
+        fillColor: '#f03',
+        fillOpacity: 0.6
+      }).addTo(map).bindPopup(`🚨 <b>SOS ALERT from ${data.user}!</b>`).openPopup();
+
+      const chatBox = document.getElementById('chatBox');
+      chatBox.innerHTML += `
+        <div class="msg sos-alert">
+          🚨 <b>EMERGENCY SOS BY ${data.user.toUpperCase()}!</b><br>
+          GPS: (${data.lat.toFixed(4)}, ${data.lng.toFixed(4)})
+          <div class="time">${data.time}</div>
+        </div>
+      `;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    socket.on('receive_chat', (data) => {
+      const chatBox = document.getElementById('chatBox');
+      chatBox.innerHTML += `
+        <div class="msg">
+          <b>${data.user}:</b> ${data.text}
+          <div class="time">${data.time}</div>
+        </div>
+      `;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+  </script>
+</body>
+</html>
